@@ -48,6 +48,49 @@ def run_sim(number_neurons, connection_probability, synaptic_weights, tend=300, 
     return spike_monitor, population_rate_monitor
 
 
+
+def run_sim_2(number_neurons, connection_probability, synaptic_weights, tend=300, external_current_strength=5):
+    from brian.units import mvolt, msecond, namp, Mohm
+    import brian
+
+    El = 0 * mvolt
+    tau_m = 30 * msecond
+    tau_syn = 10 * msecond
+    R = 20 * Mohm
+    v_threshold = 30 * mvolt
+    v_reset = 0 * mvolt
+    tau_refractory = 4 * msecond
+
+    eqs = brian.Equations('''
+    dv/dt = (-(v - El) + R*I)/tau_m : volt
+    I = I_syn + I_stim : amp
+    dI_syn/dt = -I_syn/tau_syn : amp
+    I_stim : amp
+    ''')
+
+    external_current = np.zeros(tend)
+    external_current[np.arange(0, 100)] = external_current_strength * namp
+
+    group = brian.NeuronGroup(
+        model=eqs,
+        N=number_neurons, threshold=v_threshold, reset=v_reset, refractory=tau_refractory)
+
+    group.I_stim = brian.TimedArray(external_current, dt=1*msecond)
+
+    connections = brian.Connection(group, group, 'I_syn')
+    connections.connect_random(sparseness=connection_probability, weight=synaptic_weights*namp)
+
+    spike_monitor = brian.SpikeMonitor(group)
+    population_rate_monitor = brian.PopulationRateMonitor(group, bin=10*msecond)
+
+    isyn_monitor = brian.StateMonitor(group, 'I_syn', timestep=100, record=1)
+
+    brian.reinit()
+    brian.run(tend * msecond)
+
+    return spike_monitor, population_rate_monitor, isyn_monitor
+
+
 def calculate_late_response(population_rate_monitor, t0=0.250, t1=0.300):
     return np.mean(
         population_rate_monitor.rate[
@@ -243,17 +286,17 @@ def plot_activity_by_synaptic_current_from_average_synaptic_current(gain):
 
 
 def exercise_5():
-    plt.figure(figsize=(5, 3))
-    gain_filename = 'gain.txt'
-    gain = np.loadtxt(gain_filename)
-    plt.plot(gain[0, :], gain[1, :], label='From Gain')
-    plot_activity_by_synaptic_current_from_average_synaptic_current(gain)
-    plt.ylabel('Activity (Hz)')
-    plt.xlabel('Synaptic Current (nA)')
-    plt.ylim(ymin=-10, ymax=gain[1].max()*1.05)
-    plt.legend(loc='lower right', prop={'size': 8})
-    plt.tight_layout()
-    plt.savefig('results/activity_by_synaptic_current')
+    # plt.figure(figsize=(5, 3))
+    # gain_filename = 'gain.txt'
+    # gain = np.loadtxt(gain_filename)
+    # plt.plot(gain[0, :], gain[1, :], label='From Gain')
+    # plot_activity_by_synaptic_current_from_average_synaptic_current(gain)
+    # plt.ylabel('Activity (Hz)')
+    # plt.xlabel('Synaptic Current (nA)')
+    # plt.ylim(ymin=-10, ymax=gain[1].max()*1.05)
+    # plt.legend(loc='lower right', prop={'size': 8})
+    # plt.tight_layout()
+    # plt.savefig('results/activity_by_synaptic_current')
 
     # plt.figure(figsize=(4, 3))
     # max_coef = 0
@@ -286,23 +329,31 @@ def exercise_5():
     # plt.legend(loc='lower right', prop={'size': 8})
     # plt.savefig('results/late_response_(hz)_by_effective_coefficient.png')
 
-    external_current_strengths = np.arange(1.56, 1.6, 0.01)
+    external_current_strengths = np.arange(0, 5, 0.2)
     initial_response = np.zeros_like(external_current_strengths)
     late_response = np.zeros_like(external_current_strengths)
 
-    f0 = plt.figure()#figsize=(4, 3))
+    plt.figure()#figsize=(4, 3))
 
     survive = []
     die = []
     for i, curr in enumerate(external_current_strengths):
-        _, monitor = run_sim(default_number_neurons, 0.375, default_synaptic_weights, 300, curr)
+        _, monitor, isyn_monitor = run_sim_2(default_number_neurons, 0.375, default_synaptic_weights, 300, curr)
         initial_response[i] = calculate_late_response(monitor, 0.075, 0.125)
         late_response[i] = calculate_late_response(monitor)
 
+
         if late_response[i] > 1:
+            plt.plot(isyn_monitor.values[0], monitor.rate, label=str(curr))
             survive.append((curr, monitor))
         else:
+            plt.plot(isyn_monitor.values[0], monitor.rate, label=str(curr))
             die.append((curr, monitor))
+
+    # plt.legend(prop={'size': 8})
+    plt.savefig('results/wat.png')
+
+    f0 = plt.figure()#figsize=(4, 3))
 
     for curr, monitor in survive:
         plt.plot(monitor.times * 1000, monitor.rate, 'g', label=str(curr))
