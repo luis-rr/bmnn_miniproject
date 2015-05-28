@@ -5,13 +5,12 @@ import numpy as np
 default_number_neurons = 100.0
 default_connection_probability = 0.30
 default_synaptic_weights = 0.2
+default_synaptic_time_constant = 10  # ms
 
 range_number_neurons = np.arange(100, 200, 2)
 range_connection_probabilities = np.arange(0.3, 0.61, 0.015)
 range_synaptic_weights = np.arange(0.2, 0.4, 0.01)
-
-default_synaptic_time_constant = 10  # ms
-range_tau_syn = np.arange(10.0, 20.0, 0.25)
+range_synaptic_time_constant = np.arange(10.0, 20.0, 0.25)
 
 
 def run_sim(number_neurons=default_number_neurons,
@@ -19,6 +18,9 @@ def run_sim(number_neurons=default_number_neurons,
             synaptic_weights=default_synaptic_weights,
             synaptic_time_constant=default_synaptic_time_constant,
             tend=300):
+    '''run a simulation of a population of leaky integrate-and-fire excitatory neurons that are
+    randomly connected. The population is injected with a transient current.'''
+
     from brian.units import mvolt, msecond, namp, Mohm
     import brian
 
@@ -59,6 +61,7 @@ def run_sim(number_neurons=default_number_neurons,
 
 
 def calculate_late_response(population_rate_monitor, t0=0.250, t1=0.300):
+    '''calculate the average population rate in the given interval'''
     return np.mean(
         population_rate_monitor.rate[
             (population_rate_monitor.times >= t0) &
@@ -66,6 +69,7 @@ def calculate_late_response(population_rate_monitor, t0=0.250, t1=0.300):
 
 
 def plot_post_synaptic_current(k, tau, t0, t1):
+    '''plot the post-synaptic-current shape'''
     t = np.arange(t0, t1, 0.1)
     psc = k * np.exp(-t / tau)
     psc[t < 0] = 0
@@ -81,11 +85,13 @@ def plot_post_synaptic_current(k, tau, t0, t1):
 
 
 def exercise_1():
-    from brian.plotting import raster_plot
+    '''Simulation of a population'''
 
     spike_monitor, population_rate_monitor = run_sim()
 
     #############################################
+
+    from brian.plotting import raster_plot
 
     plt.figure(figsize=(3.0, 2.5))
     plt.xlim(xmin=0, xmax=300)
@@ -115,6 +121,8 @@ def exercise_1():
 
 
 def experiment_connection_probabilities():
+    '''parameter sweep the connection probabilities leaving everthing else as default'''
+
     nn = np.ones(range_connection_probabilities.size) * default_number_neurons
     sw = np.ones(range_connection_probabilities.size) * default_synaptic_weights
     ts = np.ones(range_connection_probabilities.size) * default_synaptic_time_constant
@@ -124,6 +132,8 @@ def experiment_connection_probabilities():
 
 
 def experiment_synaptic_weights():
+    '''parameter sweep the synaptic weights leaving everthing else as default'''
+
     nn = np.ones(range_synaptic_weights.size) * default_number_neurons
     cp = np.ones(range_synaptic_weights.size) * default_connection_probability
     ts = np.ones(range_synaptic_weights.size) * default_synaptic_time_constant
@@ -133,6 +143,8 @@ def experiment_synaptic_weights():
 
 
 def experiment_number_neurons():
+    '''parameter sweep the number of neurons leaving everthing else as default'''
+
     cp = np.ones(range_number_neurons.size) * default_connection_probability
     sw = np.ones(range_number_neurons.size) * default_synaptic_weights
     ts = np.ones(range_number_neurons.size) * default_synaptic_time_constant
@@ -142,30 +154,37 @@ def experiment_number_neurons():
 
 
 def experiment_synaptic_time_constant():
-    nn = np.ones(range_tau_syn.size) * default_number_neurons
-    cp = np.ones(range_tau_syn.size) * default_connection_probability
-    sw = np.ones(range_tau_syn.size) * default_synaptic_weights
-    late_responses = calculate_late_responses_experiment(nn, cp, sw, synaptic_time_constant=range_tau_syn)
+    '''parameter sweep tau_syn leaving everthing else as default'''
 
-    return range_tau_syn, late_responses
+    nn = np.ones(range_synaptic_time_constant.size) * default_number_neurons
+    cp = np.ones(range_synaptic_time_constant.size) * default_connection_probability
+    sw = np.ones(range_synaptic_time_constant.size) * default_synaptic_weights
+    late_responses = calculate_late_responses_experiment(nn, cp, sw, range_synaptic_time_constant)
+
+    return range_synaptic_time_constant, late_responses
 
 
-def calculate_late_responses_experiment(number_neurons, connection_probability, synaptic_weights, synaptic_time_constant):
+def calculate_late_responses_experiment(
+        number_neurons, connection_probability, synaptic_weights, synaptic_time_constant):
+    '''the late responses for a range of values for each parameter'''
     late_responses = []
 
-    for nn, cp, sw, tc in zip(number_neurons, connection_probability, synaptic_weights, synaptic_time_constant):
-        print nn, cp, sw, tc
+    for nn, cp, sw, tc in zip(number_neurons, connection_probability,
+                              synaptic_weights, synaptic_time_constant):
+
         spike_monitor, population_rate_monitor = run_sim(
             number_neurons=nn,
             connection_probability=cp,
             synaptic_weights=sw,
             synaptic_time_constant=tc)
+
         late_responses.append(calculate_late_response(population_rate_monitor))
 
     return np.array(late_responses)
 
 
 def plot_exp(variable, late_responses, xlabel, ylabel):
+    '''plot the results of a late response experiment'''
     plt.figure(figsize=(5, 2.5))
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
@@ -178,6 +197,8 @@ def plot_exp(variable, late_responses, xlabel, ylabel):
 
 
 def exercise_2():
+    '''Changing the connection probability inside the population'''
+
     cp, late_responses = experiment_connection_probabilities()
     plot_exp(cp, late_responses, 'Connection Probability', 'Late Response (Hz)')
 
@@ -199,24 +220,32 @@ def exercise_2():
 
 
 def exercise_3():
+    '''Changing the synaptic weights inside the population'''
     sw, late_responses = experiment_synaptic_weights()
     plot_exp(sw, late_responses, 'Synaptic weights (nA)', 'Late Response (Hz)')
 
 
 def exercise_4():
+    '''Changing the number of neurons inside the population'''
     nn, late_responses = experiment_number_neurons()
     plot_exp(nn, late_responses, 'Number of Neurons', 'Late Response (Hz)')
 
 
-def compute_effective_coefficient(number_neurons, connection_probabilities, synaptic_weights):
-    tau = 0.01  # seconds
+def compute_effective_coefficient(
+        number_neurons=default_number_neurons,
+        connection_probabilities=default_connection_probability,
+        synaptic_weights=default_synaptic_weights,
+        synaptic_time_constant=default_synaptic_time_constant):
+    '''compute the effective coefficient according to the derived formula'''
     k = 1.0
+    miliseconds_to_seconds = 0.001
 
-    post_synaptic_charge = tau * k
+    post_synaptic_charge = k * synaptic_time_constant * miliseconds_to_seconds
     return synaptic_weights * number_neurons * connection_probabilities * post_synaptic_charge
 
 
 def get_intersections(f0, f1, x0, x1):
+    '''numerically find the intersection points between two functions'''
     from scipy.optimize import fsolve
 
     def find_intersection(initial):
@@ -233,12 +262,12 @@ def get_intersections(f0, f1, x0, x1):
 
 
 def plot_activity_by_synaptic_current_from_average_synaptic_current(gain):
+    '''plot activity by synaptic current with several values of the effective coefficient
+    and show the intersection points'''
     syn_current = gain[0]  # nano-amps
 
     for cp in [default_connection_probability, 0.365, 0.45]:
-        effective_coefficient = compute_effective_coefficient(default_number_neurons,
-                                                              cp,
-                                                              default_synaptic_weights)
+        effective_coefficient = compute_effective_coefficient(connection_probabilities=cp)
         activity = syn_current / effective_coefficient
         line = plt.plot(
             syn_current, activity,
@@ -256,6 +285,8 @@ def plot_activity_by_synaptic_current_from_average_synaptic_current(gain):
 
 
 def exercise_5():
+    '''Effective Coefficient of the population'''
+
     plt.figure(figsize=(4.0, 2.5))
     gain_filename = 'gain.txt'
     gain = np.loadtxt(gain_filename)
@@ -275,22 +306,19 @@ def exercise_5():
 
     print 'experiment_connection_probabilities'
     connection_probabilities, late_responses = experiment_connection_probabilities()
-    coefficient = compute_effective_coefficient(
-        default_number_neurons, connection_probabilities, default_synaptic_weights)
+    coefficient = compute_effective_coefficient(connection_probabilities=connection_probabilities)
     plt.plot(coefficient, late_responses, label='Connection Probability')
     max_coef = max(np.max(coefficient), max_coef)
 
     print 'experiment_synaptic_weights'
     synaptic_weights, late_responses = experiment_synaptic_weights()
-    coefficient = compute_effective_coefficient(
-        default_number_neurons, default_connection_probability, synaptic_weights)
+    coefficient = compute_effective_coefficient(synaptic_weights=synaptic_weights)
     plt.plot(coefficient, late_responses, label='Synaptic Weights')
     max_coef = max(np.max(coefficient), max_coef)
 
     print 'experiment_number_neurons'
     number_neurons, late_responses = experiment_number_neurons()
-    coefficient = compute_effective_coefficient(
-        number_neurons, default_connection_probability, default_synaptic_weights)
+    coefficient = compute_effective_coefficient(number_neurons=number_neurons)
     plt.plot(coefficient, late_responses, label='Number of Neurons')
     max_coef = max(np.max(coefficient), max_coef)
 
