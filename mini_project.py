@@ -23,6 +23,7 @@ def run_sim(number_neurons=default_number_neurons,
 
     from brian.units import mvolt, msecond, namp, Mohm
     import brian
+    brian.clear()
 
     El = 0 * mvolt
     tau_m = 30 * msecond
